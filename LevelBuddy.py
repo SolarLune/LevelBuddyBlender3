@@ -367,6 +367,21 @@ bpy.types.Scene.map_auto_smooth_angle = bpy.props.FloatProperty(
     step=1,
     precision=0,
 )
+
+bpy.types.Scene.map_minimum_edgeloop_on = bpy.props.BoolProperty(
+    name="Split Large Edgeloops",
+    description="If the resulting mesh should be edge cut when edges are too large",
+    default=True,
+)
+
+bpy.types.Scene.map_minimum_edgeloop_size = bpy.props.FloatProperty(
+    name="Minimum edgeloop size",
+    description="Minimum edgeloop size",
+    default=1,
+    min=0.2,
+    step=0.5,
+)
+
 bpy.types.Scene.map_flip_normals = bpy.props.BoolProperty(
     name="Map Flip Normals",
     description='Flip output map normals',
@@ -506,6 +521,9 @@ class LevelBuddyPanel(bpy.types.Panel):
         col.prop(scn, "map_precision")
         col.prop(scn, "map_use_auto_smooth")
         col.prop(scn, "map_auto_smooth_angle")
+        col.prop(scn, "map_minimum_edgeloop_on")
+        if scn.map_minimum_edgeloop_on:
+            col.prop(scn, "map_minimum_edgeloop_size")
         col.prop_search(scn, "remove_material", bpy.data, "materials")
         col = layout.column(align=True)
         col.operator("scene.level_buddy_build_map", text="Build Map", icon="MOD_BUILD").bool_op = "UNION"
@@ -771,6 +789,54 @@ class LevelBuddyBuildMap(bpy.types.Operator):
 
             if bpy.context.scene.map_flip_normals:
                 flip_object_normals(level_map)
+
+            if bpy.context.scene.map_minimum_edgeloop_on:
+
+                bpy.ops.object.mode_set(mode='EDIT')
+
+                bpy.ops.mesh.select_mode(type="FACE")
+                bpy.ops.mesh.select_all(action="SELECT")
+
+                bpy.ops.mesh.quads_convert_to_tris()
+
+                # bpy.ops.mesh.select_mode(type="EDGE")
+
+                allEdgesGood = False
+
+                while not allEdgesGood:
+
+                    allEdgesGood = True
+
+                    bpy.ops.mesh.select_all(action="DESELECT")
+                    bpy.ops.object.mode_set(mode='OBJECT')
+
+                    for edge in level_map.data.edges:
+
+                        verts = level_map.data.vertices
+
+                        size = (verts[edge.vertices[0]].co - verts[edge.vertices[1]].co).length
+
+                        minLoopSize = bpy.context.scene.map_minimum_edgeloop_size
+
+                        if size > minLoopSize:
+
+                            edge.select = True
+
+                            allEdgesGood = False
+                        
+                        else:
+
+                            edge.select = False
+
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    
+                    bpy.ops.mesh.subdivide()
+
+                    bpy.ops.mesh.select_all(action="DESELECT")
+
+                    level_map.update_from_editmode()
+
+                bpy.ops.object.mode_set(mode='OBJECT')
 
         # restore context
         bpy.ops.object.select_all(action='DESELECT')
