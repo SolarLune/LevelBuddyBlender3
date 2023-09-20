@@ -57,7 +57,13 @@ def auto_texture(bool_obj, source_obj):
     bm = bmesh.new()
     bm.from_mesh(mesh)
 
-    uv_layer = bm.loops.layers.uv.verify()
+    # We do this because by default, uv.verify() will make a new UV map if it deems it necessary, but it will have a name Blender determines.
+    # We want the UV maps to have the same name so that when sectors / brushes get boolean'd together, the UV maps are merged.
+    if bm.loops.layers.uv.active is None:
+        uv_layer = bm.loops.layers.uv.new("UVMap")
+    else:
+        uv_layer = bm.loops.layers.uv.verify()
+
     for f in bm.faces:
         nX = f.normal.x
         nY = f.normal.y
