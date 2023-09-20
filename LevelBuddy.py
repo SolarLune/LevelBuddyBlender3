@@ -382,6 +382,12 @@ bpy.types.Scene.map_minimum_edgeloop_size = bpy.props.FloatProperty(
     step=0.5,
 )
 
+bpy.types.Scene.map_physics_mesh = bpy.props.BoolProperty(
+    name="Make Physics Mesh",
+    description="If the resulting mesh should make an unaltered copy (for physics)",
+    default=True,
+)
+
 bpy.types.Scene.map_flip_normals = bpy.props.BoolProperty(
     name="Map Flip Normals",
     description='Flip output map normals',
@@ -524,6 +530,7 @@ class LevelBuddyPanel(bpy.types.Panel):
         col.prop(scn, "map_minimum_edgeloop_on")
         if scn.map_minimum_edgeloop_on:
             col.prop(scn, "map_minimum_edgeloop_size")
+            col.prop(scn, "map_physics_mesh")
         col.prop_search(scn, "remove_material", bpy.data, "materials")
         col = layout.column(align=True)
         col.operator("scene.level_buddy_build_map", text="Build Map", icon="MOD_BUILD").bool_op = "UNION"
@@ -791,6 +798,32 @@ class LevelBuddyBuildMap(bpy.types.Operator):
                 flip_object_normals(level_map)
 
             if bpy.context.scene.map_minimum_edgeloop_on:
+
+                if bpy.context.scene.map_physics_mesh:
+                    ogObj = bpy.context.object
+
+                    physicsMeshName = ogObj.name + "_physics"
+                    oldPhysicsMesh = None
+                    
+                    if physicsMeshName in bpy.context.scene.objects:
+                        physics = bpy.context.scene.objects[physicsMeshName]
+                        oldPhysicsMesh = bpy.data.meshes[physicsMeshName]
+                        oldPhysicsMesh.name += ".old"
+                    else:
+                        physics = ogObj.copy()
+                        physics.display_type = "WIRE"
+                        bpy.context.collection.objects.link(physics)
+                        physics.name = physicsMeshName
+
+                    physics.data = ogObj.data.copy()
+                    physics.data.name = physicsMeshName
+
+                    if oldPhysicsMesh is not None:
+                        bpy.data.meshes.remove(oldPhysicsMesh)
+
+                    bpy.ops.object.select_all(action="DESELECT")
+
+                    ogObj.select_set(True)
 
                 bpy.ops.object.mode_set(mode='EDIT')
 
